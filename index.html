@@ -8,78 +8,146 @@
             margin: 0;
             padding: 20px;
             background-color: #0c0c1e;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
             color: #fff;
             display: flex;
             flex-direction: column;
             align-items: center;
+            user-select: none;
         }
+
+        /* Modernized Dashboard HUD */
         #game-ui {
             width: 800px;
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            background: #12122c;
-            padding: 15px;
-            border-radius: 12px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+            background: rgba(18, 18, 44, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 12px;
+            border-radius: 16px;
             box-sizing: border-box;
-            border: 2px solid #3d3dbd;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            border: 1px solid rgba(61, 61, 189, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.1);
         }
+
+        /* Individual UI Metric Cards */
         .ui-box {
-            font-size: 16px;
+            background: rgba(30, 30, 70, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px 16px;
             display: flex;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
             gap: 6px;
+            text-align: center;
+            transition: transform 0.2s ease, border-color 0.2s ease;
         }
-        .highlight {
+
+        .ui-box:hover {
+            transform: translateY(-2px);
+            border-color: rgba(61, 61, 189, 0.8);
+            background: rgba(35, 35, 80, 0.6);
+        }
+
+        /* Label styling above values */
+        .ui-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #8fa0e0;
+            font-weight: 700;
+        }
+
+        /* Pill container styling for visual metrics */
+        .badge {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 16px;
             font-weight: bold;
-            font-size: 20px;
-            text-shadow: 0 0 8px rgba(255,255,255,0.2);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
         }
+
+        .highlight {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        /* Dynamic Canvas Frame */
         canvas {
             background: linear-gradient(to bottom, #101026, #1a1a3a);
             border: 4px solid #3d3dbd;
-            border-radius: 12px;
-            box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6);
         }
+
         #instructions {
             margin-top: 15px;
             width: 800px;
             text-align: center;
             color: #b5e2fa;
             font-size: 14px;
-            line-height: 1.5;
+            line-height: 1.6;
         }
+
         button {
-            background: #e43f5a;
+            background: linear-gradient(135deg, #e43f5a, #ff4d6d);
             color: white;
             border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 8px;
+            padding: 12px 28px;
+            font-size: 15px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
-            margin-top: 12px;
-            box-shadow: 0 4px 10px rgba(228, 63, 90, 0.4);
-            transition: all 0.2s ease;
+            margin-top: 14px;
+            box-shadow: 0 4px 15px rgba(228, 63, 90, 0.4);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+
         button:hover { 
-            background: #ff4d6d; 
-            transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(255, 77, 109, 0.5);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(255, 77, 109, 0.5);
         }
+
         button:active {
-            transform: translateY(0);
+            transform: translateY(1px);
         }
     </style>
 </head>
 <body>
 
 <div id="game-ui">
-    <div class="ui-box">🧪 **Target Ratio:** <span class="highlight" id="ratio-text" style="color: #ff4d4d;">Loading...</span></div>
-    <div class="ui-box">🎯 **Required Total Items:** <span class="highlight" id="total-text" style="color: #f1c40f;">0</span></div>
-    <div class="ui-box">🧺 **Cauldron Inventory:** <span style="color: #ff4d4d; font-weight: bold;" id="ui-red">0</span>&nbsp;|&nbsp;<span style="color: #4da6ff; font-weight: bold;" id="ui-blue">0</span></div>
+    <div class="ui-box" style="box-shadow: 0 4px 10px rgba(228, 63, 90, 0.05);">
+        <div class="ui-label">🧪 Alchemy Formula</div>
+        <div class="badge" id="ratio-text" style="border: 1px solid rgba(228, 63, 90, 0.3);">
+            Loading...
+        </div>
+    </div>
+    
+    <div class="ui-box" style="box-shadow: 0 4px 10px rgba(241, 196, 15, 0.05);">
+        <div class="ui-label">🎯 Target Volume</div>
+        <div class="badge" style="border: 1px solid rgba(241, 196, 15, 0.3); color: #f1c40f;">
+            <span class="highlight" id="total-text">0</span>&nbsp;<span style="font-size: 13px; font-weight: normal; color: #aaa;">items</span>
+        </div>
+    </div>
+    
+    <div class="ui-box" style="box-shadow: 0 4px 10px rgba(77, 166, 255, 0.05);">
+        <div class="ui-label">🧺 Current Mixture</div>
+        <div class="badge" style="border: 1px solid rgba(61, 61, 189, 0.4); background: rgba(0,0,0,0.4);">
+            <span style="color: #ff4d4d;" id="ui-red">0</span>
+            <span style="color: rgba(255,255,255,0.2); font-weight: normal;">/</span>
+            <span style="color: #4da6ff;" id="ui-blue">0</span>
+        </div>
+    </div>
 </div>
 
 <canvas id="gameCanvas" width="800" height="450"></canvas>
@@ -142,7 +210,7 @@ function generatePuzzle() {
     player.vy = 0;
     gameStatus = "playing";
     
-    document.getElementById('ratio-text').innerHTML = `<span style="color:#ff4d4d">${baseRed} Berries</span> : <span style="color:#4da6ff">${baseBlue} Crystals</span>`;
+    document.getElementById('ratio-text').innerHTML = `<span style="color:#ff4d4d">${baseRed}</span><span style="color:#aaa; font-weight:normal; font-size:14px;">🍓</span> : <span style="color:#4da6ff">${baseBlue}</span><span style="color:#aaa; font-weight:normal; font-size:14px;">💎</span>`;
     document.getElementById('total-text').innerText = targetTotal;
     updateUI();
 }
@@ -201,7 +269,6 @@ function update() {
         }
     }
 
-    // Checking interaction with items
     for (let i = items.length - 1; i >= 0; i--) {
         let it = items[i];
         if (player.x < it.x + 15 && player.x + player.w > it.x - 15 &&
@@ -218,8 +285,8 @@ function update() {
 }
 
 function updateUI() {
-    document.getElementById('ui-red').innerText = `🍓 Berries: ${cauldron.redCount}`;
-    document.getElementById('ui-blue').innerText = `💎 Crystals: ${cauldron.blueCount}`;
+    document.getElementById('ui-red').innerText = `${cauldron.redCount} 🍓`;
+    document.getElementById('ui-blue').innerText = `${cauldron.blueCount} 💎`;
 }
 
 function checkWinCondition() {
@@ -233,16 +300,12 @@ function checkWinCondition() {
     }
 }
 
-// Custom Procedural Art Drawing Engine
 function drawWizard(x, y, facing) {
     ctx.save();
     ctx.translate(x + 16, y + 26);
-    
-    // Breathing animation bounce
     let bounce = Math.sin(animationTimer * 2) * 1.5;
     ctx.translate(0, bounce);
 
-    // 1. Wizard Robe Body
     ctx.fillStyle = "#5c3ca6";
     ctx.beginPath();
     ctx.moveTo(0, -10);
@@ -251,17 +314,14 @@ function drawWizard(x, y, facing) {
     ctx.closePath();
     ctx.fill();
 
-    // Robe Inner Accents
     ctx.fillStyle = "#432b80";
     ctx.fillRect(-4, 4, 8, 22);
 
-    // 2. Wizard Face
     ctx.fillStyle = "#ffd4a1";
     ctx.beginPath();
     ctx.arc(0, -12, 10, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eyes
     ctx.fillStyle = "#f1c40f";
     let eyeOffset = facing === 'right' ? 3 : -3;
     ctx.beginPath();
@@ -269,7 +329,6 @@ function drawWizard(x, y, facing) {
     ctx.arc(eyeOffset + 3, -14, 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Beard
     ctx.fillStyle = "#e6e6fa";
     ctx.beginPath();
     ctx.moveTo(-7, -10);
@@ -278,11 +337,8 @@ function drawWizard(x, y, facing) {
     ctx.closePath();
     ctx.fill();
 
-    // 3. Pointy Wizard Hat
     ctx.fillStyle = "#432b80";
-    // Hat Brim
     ctx.fillRect(-15, -22, 30, 4);
-    // Pointy top
     ctx.fillStyle = "#5c3ca6";
     ctx.beginPath();
     ctx.moveTo(-10, -22);
@@ -291,10 +347,8 @@ function drawWizard(x, y, facing) {
     ctx.closePath();
     ctx.fill();
 
-    // Gold Hat Band
     ctx.fillStyle = "#f1c40f";
     ctx.fillRect(-10, -22, 20, 3);
-
     ctx.restore();
 }
 
@@ -302,7 +356,6 @@ function drawBerry(x, y, pulse) {
     ctx.save();
     ctx.translate(x, y + Math.sin(pulse) * 2);
 
-    // Strawberry Body
     ctx.fillStyle = "#e43f5a";
     ctx.beginPath();
     ctx.moveTo(0, -10);
@@ -311,15 +364,11 @@ function drawBerry(x, y, pulse) {
     ctx.closePath();
     ctx.fill();
 
-    // Little Golden Seeds
     ctx.fillStyle = "#f1c40f";
     ctx.fillRect(-4, -2, 1.5, 2);
     ctx.fillRect(4, -2, 1.5, 2);
     ctx.fillRect(0, 4, 1.5, 2);
-    ctx.fillRect(-3, 6, 1.5, 2);
-    ctx.fillRect(3, 6, 1.5, 2);
 
-    // Green Leaf Stem
     ctx.fillStyle = "#2ecc71";
     ctx.beginPath();
     ctx.moveTo(0, -10);
@@ -336,7 +385,6 @@ function drawCrystal(x, y, pulse) {
     ctx.save();
     ctx.translate(x, y + Math.cos(pulse) * 2);
 
-    // Outer Crystal Glow Accent
     let gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 14);
     gradient.addColorStop(0, 'rgba(77, 166, 255, 0.6)');
     gradient.addColorStop(1, 'rgba(77, 166, 255, 0)');
@@ -345,17 +393,15 @@ function drawCrystal(x, y, pulse) {
     ctx.arc(0, 0, 14, 0, Math.PI*2);
     ctx.fill();
 
-    // Diamond Gem Shape Geometry
     ctx.fillStyle = "#00bcd4";
     ctx.beginPath();
-    ctx.moveTo(0, -12);  // Top center
-    ctx.lineTo(10, -2);  // Right point
-    ctx.lineTo(0, 12);   // Bottom point
-    ctx.lineTo(-10, -2); // Left point
+    ctx.moveTo(0, -12);  
+    ctx.lineTo(10, -2);  
+    ctx.lineTo(0, 12);   
+    ctx.lineTo(-10, -2); 
     ctx.closePath();
     ctx.fill();
 
-    // Facet Shading Reflection Lines
     ctx.fillStyle = "#e0f7fa";
     ctx.beginPath();
     ctx.moveTo(0, -12);
@@ -378,7 +424,6 @@ function drawCrystal(x, y, pulse) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw Ancient Background Stars / Particles
     ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
     for(let i=1; i<6; i++) {
         let starX = (i * 135) % canvas.width;
@@ -386,41 +431,33 @@ function draw() {
         ctx.fillRect(starX, starY, 3, 3);
     }
 
-    // Draw Mythic Brick Platforms
     for (let plat of platforms) {
         ctx.fillStyle = "#222244";
         ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-        // Top neon line of platform
         ctx.fillStyle = "#3d3dbd";
         ctx.fillRect(plat.x, plat.y, plat.w, 4);
     }
 
-    // Draw Alchemist Cauldron
-    // Shadow base
     ctx.fillStyle = "rgba(0,0,0,0.4)";
     ctx.beginPath();
     ctx.ellipse(cauldron.x + 35, cauldron.y + 50, 30, 6, 0, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Cauldron Outer Steel Body
     ctx.fillStyle = "#2c3e50";
     ctx.fillRect(cauldron.x, cauldron.y + 10, cauldron.w, cauldron.h - 10);
     ctx.beginPath();
     ctx.arc(cauldron.x + 35, cauldron.y + 30, 35, 0, Math.PI, false);
     ctx.fill();
 
-    // Cauldron Lip Rim
     ctx.fillStyle = "#34495e";
     ctx.fillRect(cauldron.x - 4, cauldron.y + 6, cauldron.w + 8, 8);
 
-    // Glowing Bubbling Magical Potion Level
     let brewColor = (gameStatus === "fail") ? "#e74c3c" : "#2ecc71";
     ctx.fillStyle = brewColor;
     ctx.beginPath();
     ctx.ellipse(cauldron.x + 35, cauldron.y + 7, 31, 6, 0, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Draw Floating Bubbles from Potion
     ctx.fillStyle = brewColor;
     let bubble1Y = cauldron.y - 2 - (Math.abs(Math.sin(animationTimer)) * 12);
     let bubble2Y = cauldron.y - 6 - (Math.abs(Math.cos(animationTimer * 1.5)) * 15);
@@ -429,7 +466,6 @@ function draw() {
     ctx.arc(cauldron.x + 48, bubble2Y, 4, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw Generated Items
     for (let it of items) {
         if (it.type === "red") {
             drawBerry(it.x, it.y, animationTimer + it.pulseOffset);
@@ -438,10 +474,8 @@ function draw() {
         }
     }
 
-    // Draw Animated Wizard Character
     drawWizard(player.x, player.y, player.facing);
 
-    // Endgame Win/Loss Screen Layout Overlays
     if (gameStatus === "win") {
         ctx.fillStyle = "rgba(10, 10, 25, 0.9)";
         ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -482,7 +516,6 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Initial Project Launch Setup
 generatePuzzle();
 gameLoop();
 </script>
