@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Generative Ratio Alchemist</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #0c0c1e;
+            font-family: 'Segoe UI', sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #game-ui {
+            width: 800px;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            background: #12122c;
+            padding: 15px;
+            border-radius: 12px;
+            box-sizing: border-box;
+            border: 2px solid #3d3dbd;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .ui-box {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .highlight {
+            font-weight: bold;
+            font-size: 20px;
+            text-shadow: 0 0 8px rgba(255,255,255,0.2);
+        }
+        canvas {
+            background: linear-gradient(to bottom, #101026, #1a1a3a);
+            border: 4px solid #3d3dbd;
+            border-radius: 12px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+        }
+        #instructions {
+            margin-top: 15px;
+            width: 800px;
+            text-align: center;
+            color: #b5e2fa;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        button {
+            background: #e43f5a;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 12px;
+            box-shadow: 0 4px 10px rgba(228, 63, 90, 0.4);
+            transition: all 0.2s ease;
+        }
+        button:hover { 
+            background: #ff4d6d; 
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(255, 77, 109, 0.5);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-ui">
+    <div class="ui-box">🧪 **Target Ratio:** <span class="highlight" id="ratio-text" style="color: #ff4d4d;">Loading...</span></div>
+    <div class="ui-box">🎯 **Required Total Items:** <span class="highlight" id="total-text" style="color: #f1c40f;">0</span></div>
+    <div class="ui-box">🧺 **Cauldron Inventory:** <span style="color: #ff4d4d; font-weight: bold;" id="ui-red">0</span>&nbsp;|&nbsp;<span style="color: #4da6ff; font-weight: bold;" id="ui-blue">0</span></div>
+</div>
+
+<canvas id="gameCanvas" width="800" height="450"></canvas>
+
+<div id="instructions">
+    Use <strong>Left/Right Arrow Keys</strong> (or A/D) to move. Use <strong>Up Arrow</strong> (or W/Space) to jump.<br>
+    Calculate your targets based on the ratio, collect the correct amounts, and hit the total!
+    <br>
+    <button id="reset-btn" onclick="generatePuzzle()">Reroll New Math Puzzle</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game State Physics
+let player = { x: 50, y: 350, w: 32, h: 52, vx: 0, vy: 0, grounded: false, speed: 4.5, jumpForce: 11.5, facing: 'right' };
+let cauldron = { x: 365, y: 365, w: 70, h: 55, redCount: 0, blueCount: 0 };
+let items = [];
+let platforms = [
+    { x: 0, y: 420, w: 800, h: 30 },   
+    { x: 60, y: 300, w: 180, h: 18 },  
+    { x: 560, y: 300, w: 180, h: 18 }, 
+    { x: 260, y: 200, w: 280, h: 18 }  
+];
+
+let keys = {};
+let gameStatus = "playing";
+let animationTimer = 0;
+
+// Generative Math Variables
+let baseRed, baseBlue, multiplier, targetTotal, requiredRed, requiredBlue;
+
+const ratioPool = [
+    { r: 1, b: 2 }, 
+    { r: 1, b: 3 }, 
+    { r: 2, b: 3 }, 
+    { r: 1, b: 4 }, 
+    { r: 3, b: 2 }, 
+    { r: 3, b: 4 }  
+];
+
+function generatePuzzle() {
+    let setup = ratioPool[Math.floor(Math.random() * ratioPool.length)];
+    baseRed = setup.r;
+    baseBlue = setup.b;
+    
+    multiplier = Math.floor(Math.random() * 3) + 2; 
+    
+    requiredRed = baseRed * multiplier;
+    requiredBlue = baseBlue * multiplier;
+    targetTotal = requiredRed + requiredBlue;
+    
+    cauldron.redCount = 0;
+    cauldron.blueCount = 0;
+    items = [];
+    player.x = 50;
+    player.y = 350;
+    player.vx = 0;
+    player.vy = 0;
+    gameStatus = "playing";
+    
+    document.getElementById('ratio-text').innerHTML = `<span style="color:#ff4d4d">${baseRed} Berries</span> : <span style="color:#4da6ff">${baseBlue} Crystals</span>`;
+    document.getElementById('total-text').innerText = targetTotal;
+    updateUI();
+}
+
+function spawnItem() {
+    if (items.length < 8 && gameStatus === "playing") {
+        let type = Math.random() > 0.5 ? "red" : "blue";
+        let plat = platforms[Math.floor(Math.random() * (platforms.length - 1)) + 1];
+        let itemX = plat.x + Math.random() * (plat.w - 30) + 15;
+        let itemY = plat.y - 25;
+        
+        if (!items.some(i => Math.abs(i.x - itemX) < 40 && Math.abs(i.y - itemY) < 40)) {
+            items.push({ x: itemX, y: itemY, type: type, pulseOffset: Math.random() * Math.PI * 2 });
+        }
+    }
+}
+setInterval(spawnItem, 1000);
+
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+function update() {
+    if (gameStatus !== "playing") return;
+
+    animationTimer += 0.05;
+
+    if (keys['ArrowRight'] || keys['KeyD']) {
+        player.vx = player.speed;
+        player.facing = 'right';
+    } else if (keys['ArrowLeft'] || keys['KeyA']) {
+        player.vx = -player.speed;
+        player.facing = 'left';
+    } else {
+        player.vx = 0;
+    }
+
+    if ((keys['ArrowUp'] || keys['KeyW'] || keys['Space']) && player.grounded) {
+        player.vy = -player.jumpForce;
+        player.grounded = false;
+    }
+
+    player.vy += 0.5;
+    player.x += player.vx;
+    player.y += player.vy;
+
+    if (player.x < 0) player.x = 0;
+    if (player.x > canvas.width - player.w) player.x = canvas.width - player.w;
+
+    player.grounded = false;
+    for (let plat of platforms) {
+        if (player.x < plat.x + plat.w && player.x + player.w > plat.x &&
+            player.y + player.h >= plat.y && player.y + player.h - player.vy <= plat.y + 12) {
+            player.y = plat.y - player.h;
+            player.vy = 0;
+            player.grounded = true;
+        }
+    }
+
+    // Checking interaction with items
+    for (let i = items.length - 1; i >= 0; i--) {
+        let it = items[i];
+        if (player.x < it.x + 15 && player.x + player.w > it.x - 15 &&
+            player.y < it.y + 15 && player.y + player.h > it.y - 15) {
+            
+            if (it.type === "red") cauldron.redCount++;
+            else cauldron.blueCount++;
+            
+            items.splice(i, 1);
+            updateUI();
+            checkWinCondition();
+        }
+    }
+}
+
+function updateUI() {
+    document.getElementById('ui-red').innerText = `🍓 Berries: ${cauldron.redCount}`;
+    document.getElementById('ui-blue').innerText = `💎 Crystals: ${cauldron.blueCount}`;
+}
+
+function checkWinCondition() {
+    let currentTotal = cauldron.redCount + cauldron.blueCount;
+    if (currentTotal >= targetTotal) {
+        if (cauldron.redCount === requiredRed && cauldron.blueCount === requiredBlue) {
+            gameStatus = "win";
+        } else {
+            gameStatus = "fail";
+        }
+    }
+}
+
+// Custom Procedural Art Drawing Engine
+function drawWizard(x, y, facing) {
+    ctx.save();
+    ctx.translate(x + 16, y + 26);
+    
+    // Breathing animation bounce
+    let bounce = Math.sin(animationTimer * 2) * 1.5;
+    ctx.translate(0, bounce);
+
+    // 1. Wizard Robe Body
+    ctx.fillStyle = "#5c3ca6";
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(-16, 26);
+    ctx.lineTo(16, 26);
+    ctx.closePath();
+    ctx.fill();
+
+    // Robe Inner Accents
+    ctx.fillStyle = "#432b80";
+    ctx.fillRect(-4, 4, 8, 22);
+
+    // 2. Wizard Face
+    ctx.fillStyle = "#ffd4a1";
+    ctx.beginPath();
+    ctx.arc(0, -12, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = "#f1c40f";
+    let eyeOffset = facing === 'right' ? 3 : -3;
+    ctx.beginPath();
+    ctx.arc(eyeOffset - 2, -14, 2, 0, Math.PI * 2);
+    ctx.arc(eyeOffset + 3, -14, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beard
+    ctx.fillStyle = "#e6e6fa";
+    ctx.beginPath();
+    ctx.moveTo(-7, -10);
+    ctx.lineTo(0, 10);
+    ctx.lineTo(7, -10);
+    ctx.closePath();
+    ctx.fill();
+
+    // 3. Pointy Wizard Hat
+    ctx.fillStyle = "#432b80";
+    // Hat Brim
+    ctx.fillRect(-15, -22, 30, 4);
+    // Pointy top
+    ctx.fillStyle = "#5c3ca6";
+    ctx.beginPath();
+    ctx.moveTo(-10, -22);
+    ctx.lineTo(facing === 'right' ? 8 : -8, -46);
+    ctx.lineTo(10, -22);
+    ctx.closePath();
+    ctx.fill();
+
+    // Gold Hat Band
+    ctx.fillStyle = "#f1c40f";
+    ctx.fillRect(-10, -22, 20, 3);
+
+    ctx.restore();
+}
+
+function drawBerry(x, y, pulse) {
+    ctx.save();
+    ctx.translate(x, y + Math.sin(pulse) * 2);
+
+    // Strawberry Body
+    ctx.fillStyle = "#e43f5a";
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.bezierCurveTo(12, -10, 14, 6, 0, 14);
+    ctx.bezierCurveTo(-14, 6, -12, -10, 0, -10);
+    ctx.closePath();
+    ctx.fill();
+
+    // Little Golden Seeds
+    ctx.fillStyle = "#f1c40f";
+    ctx.fillRect(-4, -2, 1.5, 2);
+    ctx.fillRect(4, -2, 1.5, 2);
+    ctx.fillRect(0, 4, 1.5, 2);
+    ctx.fillRect(-3, 6, 1.5, 2);
+    ctx.fillRect(3, 6, 1.5, 2);
+
+    // Green Leaf Stem
+    ctx.fillStyle = "#2ecc71";
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(-6, -14);
+    ctx.lineTo(0, -12);
+    ctx.lineTo(6, -14);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+function drawCrystal(x, y, pulse) {
+    ctx.save();
+    ctx.translate(x, y + Math.cos(pulse) * 2);
+
+    // Outer Crystal Glow Accent
+    let gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 14);
+    gradient.addColorStop(0, 'rgba(77, 166, 255, 0.6)');
+    gradient.addColorStop(1, 'rgba(77, 166, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, 14, 0, Math.PI*2);
+    ctx.fill();
+
+    // Diamond Gem Shape Geometry
+    ctx.fillStyle = "#00bcd4";
+    ctx.beginPath();
+    ctx.moveTo(0, -12);  // Top center
+    ctx.lineTo(10, -2);  // Right point
+    ctx.lineTo(0, 12);   // Bottom point
+    ctx.lineTo(-10, -2); // Left point
+    ctx.closePath();
+    ctx.fill();
+
+    // Facet Shading Reflection Lines
+    ctx.fillStyle = "#e0f7fa";
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.lineTo(10, -2);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#4da6ff";
+    ctx.beginPath();
+    ctx.moveTo(-10, -2);
+    ctx.lineTo(0, 12);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Ancient Background Stars / Particles
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    for(let i=1; i<6; i++) {
+        let starX = (i * 135) % canvas.width;
+        let starY = (i * 75) % (canvas.height - 100);
+        ctx.fillRect(starX, starY, 3, 3);
+    }
+
+    // Draw Mythic Brick Platforms
+    for (let plat of platforms) {
+        ctx.fillStyle = "#222244";
+        ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+        // Top neon line of platform
+        ctx.fillStyle = "#3d3dbd";
+        ctx.fillRect(plat.x, plat.y, plat.w, 4);
+    }
+
+    // Draw Alchemist Cauldron
+    // Shadow base
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.beginPath();
+    ctx.ellipse(cauldron.x + 35, cauldron.y + 50, 30, 6, 0, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Cauldron Outer Steel Body
+    ctx.fillStyle = "#2c3e50";
+    ctx.fillRect(cauldron.x, cauldron.y + 10, cauldron.w, cauldron.h - 10);
+    ctx.beginPath();
+    ctx.arc(cauldron.x + 35, cauldron.y + 30, 35, 0, Math.PI, false);
+    ctx.fill();
+
+    // Cauldron Lip Rim
+    ctx.fillStyle = "#34495e";
+    ctx.fillRect(cauldron.x - 4, cauldron.y + 6, cauldron.w + 8, 8);
+
+    // Glowing Bubbling Magical Potion Level
+    let brewColor = (gameStatus === "fail") ? "#e74c3c" : "#2ecc71";
+    ctx.fillStyle = brewColor;
+    ctx.beginPath();
+    ctx.ellipse(cauldron.x + 35, cauldron.y + 7, 31, 6, 0, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Draw Floating Bubbles from Potion
+    ctx.fillStyle = brewColor;
+    let bubble1Y = cauldron.y - 2 - (Math.abs(Math.sin(animationTimer)) * 12);
+    let bubble2Y = cauldron.y - 6 - (Math.abs(Math.cos(animationTimer * 1.5)) * 15);
+    ctx.beginPath();
+    ctx.arc(cauldron.x + 20, bubble1Y, 3, 0, Math.PI * 2);
+    ctx.arc(cauldron.x + 48, bubble2Y, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw Generated Items
+    for (let it of items) {
+        if (it.type === "red") {
+            drawBerry(it.x, it.y, animationTimer + it.pulseOffset);
+        } else {
+            drawCrystal(it.x, it.y, animationTimer + it.pulseOffset);
+        }
+    }
+
+    // Draw Animated Wizard Character
+    drawWizard(player.x, player.y, player.facing);
+
+    // Endgame Win/Loss Screen Layout Overlays
+    if (gameStatus === "win") {
+        ctx.fillStyle = "rgba(10, 10, 25, 0.9)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "#2ecc71";
+        ctx.font = "bold 36px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText("✨ Alchemy Success! ✨", canvas.width/2, 160);
+        ctx.fillStyle = "#fff";
+        ctx.font = "20px Segoe UI";
+        ctx.fillText(`Perfect balance! ${cauldron.redCount} Berries to ${cauldron.blueCount} Crystals`, canvas.width/2, 220);
+        ctx.fillStyle = "#b5e2fa";
+        ctx.fillText(`simplifies perfectly to your requested target ratio of ${baseRed} : ${baseBlue}!`, canvas.width/2, 255);
+        ctx.fillStyle = "#e43f5a";
+        ctx.font = "bold 16px Segoe UI";
+        ctx.fillText("Press the red button below to begin a new dynamic recipe!", canvas.width/2, 320);
+    } else if (gameStatus === "fail") {
+        ctx.fillStyle = "rgba(15, 10, 10, 0.9)";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "#e74c3c";
+        ctx.font = "bold 36px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillText("💥 Volatile Mixture! Potion Explosion! 💥", canvas.width/2, 140);
+        ctx.fillStyle = "#fff";
+        ctx.font = "19px Segoe UI";
+        ctx.fillText(`You put in ${cauldron.redCount} Berries and ${cauldron.blueCount} Crystals (Total Items: ${cauldron.redCount + cauldron.blueCount}).`, canvas.width/2, 205);
+        ctx.fillStyle = "#f1c40f";
+        ctx.fillText(`To achieve a precise ${baseRed}:${baseBlue} ratio with a required cap of ${targetTotal} items,`, canvas.width/2, 255);
+        ctx.fillText(`you needed EXACTLY ${requiredRed} Berries and ${requiredBlue} Crystals.`, canvas.width/2, 285);
+        ctx.fillStyle = "#4da6ff";
+        ctx.font = "16px Segoe UI";
+        ctx.fillText("Don't give up! Click the red button down below to test your math skill again!", canvas.width/2, 345);
+    }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+// Initial Project Launch Setup
+generatePuzzle();
+gameLoop();
+</script>
+
+</body>
+</html>
