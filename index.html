@@ -33,7 +33,6 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.1);
         }
 
-        /* Individual UI Metric Cards */
         .ui-box {
             background: rgba(30, 30, 70, 0.5);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -76,13 +75,25 @@
         }
 
         .highlight {
-            font-size: 16px;
+            font-size: 17px;
             font-weight: 800;
             letter-spacing: 0.5px;
         }
 
+        .goal-alert-badge {
+            background: rgba(241, 196, 15, 0.15);
+            border: 1px solid rgba(241, 196, 15, 0.6) !important;
+            color: #f1c40f !important;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            margin-left: 6px;
+            box-shadow: 0 0 10px rgba(241, 196, 15, 0.2);
+        }
+
         canvas {
-            background: linear-gradient(to bottom, #101026, #1a1a3a);
+            background: linear-gradient(to bottom, #090918, #131326);
             border: 4px solid #3d3dbd;
             border-radius: 16px;
             box-shadow: 0 16px 40px rgba(0,0,0,0.6);
@@ -136,17 +147,17 @@
         </div>
     </div>
 
-    <div class="ui-box" style="box-shadow: 0 4px 10px rgba(228, 63, 90, 0.05);">
-        <div class="ui-label">🧪 Recipe Ratio</div>
-        <div class="badge" id="ratio-text" style="border: 1px solid rgba(228, 63, 90, 0.3);">
+    <div class="ui-box" style="box-template-columns: span 1; box-shadow: 0 4px 12px rgba(241, 196, 15, 0.15); border-color: rgba(241, 196, 15, 0.25);">
+        <div class="ui-label" style="color: #f1c40f;">🧪 Target Recipe</div>
+        <div class="badge" id="ratio-text" style="border: 1px solid rgba(228, 63, 90, 0.35); padding-right: 4px;">
             Loading...
         </div>
     </div>
     
-    <div class="ui-box" style="box-shadow: 0 4px 10px rgba(241, 196, 15, 0.05);">
-        <div class="ui-label">🎯 Goal Volume</div>
-        <div class="badge" style="border: 1px solid rgba(241, 196, 15, 0.3); color: #f1c40f;">
-            <span class="highlight" id="total-text">0</span>&nbsp;<span style="font-size: 12px; font-weight: normal; color: #aaa;">items</span>
+    <div class="ui-box" style="box-shadow: 0 4px 10px rgba(168, 85, 247, 0.05);">
+        <div class="ui-label">🔮 Cauldron Mix</div>
+        <div class="badge" id="loadout-badge" style="border: 1px solid rgba(168, 85, 247, 0.4); color: #e9d5ff;">
+            <span style="color:#ff4d4d" id="loadout-red">0</span>🍓 / <span style="color:#4da6ff" id="loadout-blue">0</span>💎
         </div>
     </div>
     
@@ -172,8 +183,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Game Physics Configuration
-let player = { x: 50, y: 350, w: 32, h: 52, vx: 0, vy: 0, grounded: false, speed: 4.5, jumpForce: 11.5, facing: 'right' };
-let cauldron = { x: 365, y: 365, w: 70, h: 55, redCount: 0, blueCount: 0 };
+let player = { x: 50, y: 340, w: 42, h: 62, vx: 0, vy: 0, grounded: false, speed: 4.8, jumpForce: 12.0, facing: 'right' };
+let cauldron = { x: 355, y: 350, w: 90, h: 70, redCount: 0, blueCount: 0 };
 let items = [];
 let platforms = [
     { x: 0, y: 420, w: 800, h: 30 },   
@@ -183,13 +194,13 @@ let platforms = [
 ];
 
 let keys = {};
-let gameStatus = "playing"; // playing, win, fail, transitioning, session_end
+let gameStatus = "playing"; 
 let animationTimer = 0;
 
 // Scoreboard System State Variables
 let totalWins = 0;
 let totalAttempts = 0;
-let timerSeconds = 300; // 5 Minutes
+let timerSeconds = 300; 
 let timerActive = false;
 let sessionCountdownInterval = null;
 
@@ -216,24 +227,26 @@ function generatePuzzle() {
     cauldron.blueCount = 0;
     items = [];
     player.x = 50;
-    player.y = 350;
+    player.y = 340;
     player.vx = 0;
     player.vy = 0;
     
     if (gameStatus !== "session_end") {
         gameStatus = "playing";
-        // Resume timer execution on puzzle reset if running
         if (sessionCountdownInterval === null && timerSeconds < 300 && timerSeconds > 0) {
             startSessionTimer();
         }
     }
     
-    document.getElementById('ratio-text').innerHTML = `<span style="color:#ff4d4d">${baseRed}</span><span style="font-size:12px;">🍓</span>:<span style="color:#4da6ff">${baseBlue}</span><span style="font-size:12px;">💎</span>`;
-    document.getElementById('total-text').innerText = targetTotal;
+    // Injected Prominent Goal Visualizer Box
+    document.getElementById('ratio-text').innerHTML = `
+        <span style="color:#ff4d4d">${baseRed}</span><span style="font-size:12px;">🍓</span>:<span style="color:#4da6ff">${baseBlue}</span><span style="font-size:12px;">💎</span> 
+        <span class="goal-alert-badge">GOAL: ${targetTotal}</span>
+    `;
+    updateLoadoutUI();
     updateScoreboardUI();
 }
 
-// Fixed Balanced Spawning Algorithm Framework
 function spawnItem() {
     if (items.length >= 8 || gameStatus !== "playing") return;
 
@@ -258,16 +271,15 @@ function spawnItem() {
     }
 
     let plat = platforms[Math.floor(Math.random() * (platforms.length - 1)) + 1];
-    let itemX = plat.x + Math.random() * (plat.w - 30) + 15;
+    let itemX = plat.x + Math.random() * (plat.w - 40) + 20;
     let itemY = plat.y - 25;
     
-    if (!items.some(i => Math.abs(i.x - itemX) < 40 && Math.abs(i.y - itemY) < 40)) {
+    if (!items.some(i => Math.abs(i.x - itemX) < 45 && Math.abs(i.y - itemY) < 45)) {
         items.push({ x: itemX, y: itemY, type: type, pulseOffset: Math.random() * Math.PI * 2 });
     }
 }
 setInterval(spawnItem, 800);
 
-// Timer Management (Now features robust Pausing support)
 function startSessionTimer() {
     timerActive = true;
     sessionCountdownInterval = setInterval(() => {
@@ -293,13 +305,17 @@ function stopSessionTimer() {
     }
 }
 
+function updateLoadoutUI() {
+    document.getElementById('loadout-red').innerText = cauldron.redCount;
+    document.getElementById('loadout-blue').innerText = cauldron.blueCount;
+}
+
 function updateScoreboardUI() {
     let winRate = totalAttempts === 0 ? 0 : Math.round((totalWins / totalAttempts) * 100);
     document.getElementById('score-badge').innerHTML = 
         `${totalWins}/${totalAttempts} <span style="font-size: 11px; color: #aaa; margin-left: 4px;">(${winRate}%)</span>`;
 }
 
-// User submission cycle transitions
 function nextPuzzle(wasWon) {
     totalAttempts++;
     if (wasWon) totalWins++;
@@ -313,7 +329,6 @@ function skipPuzzle() {
 
 window.addEventListener('keydown', e => {
     keys[e.code] = true;
-    // Initial start flag capture
     if (!timerActive && timerSeconds > 0 && (keys['ArrowRight'] || keys['KeyD'] || keys['ArrowLeft'] || keys['KeyA'] || keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) {
         startSessionTimer();
     }
@@ -359,12 +374,13 @@ function update() {
 
     for (let i = items.length - 1; i >= 0; i--) {
         let it = items[i];
-        if (player.x < it.x + 15 && player.x + player.w > it.x - 15 &&
-            player.y < it.y + 15 && player.y + player.h > it.y - 15) {
+        if (player.x < it.x + 20 && player.x + player.w > it.x - 20 &&
+            player.y < it.y + 20 && player.y + player.h > it.y - 20) {
             
             if (it.type === "red") cauldron.redCount++;
             else cauldron.blueCount++;
             
+            updateLoadoutUI();
             items.splice(i, 1);
             checkWinCondition();
         }
@@ -374,189 +390,302 @@ function update() {
 function checkWinCondition() {
     let currentTotal = cauldron.redCount + cauldron.blueCount;
     if (currentTotal >= targetTotal) {
-        // Halt active match timer ticks instantly
         stopSessionTimer();
         
         if (cauldron.redCount === requiredRed && cauldron.blueCount === requiredBlue) {
             gameStatus = "win";
-            setTimeout(() => { 
-                if (gameStatus !== "session_end") nextPuzzle(true); 
-            }, 5000); // 5 Second Display Duration
+            setTimeout(() => { if (gameStatus !== "session_end") nextPuzzle(true); }, 5000);
         } else {
             gameStatus = "fail";
-            setTimeout(() => { 
-                if (gameStatus !== "session_end") nextPuzzle(false); 
-            }, 5000); // 5 Second Display Duration
+            setTimeout(() => { if (gameStatus !== "session_end") nextPuzzle(false); }, 5000);
         }
     }
 }
 
-// Custom Procedural Render System Core 
+/* ========================================================================
+   HIGH ACCURACY PROCEDURAL ART RENDER ENGINE
+   ======================================================================== */
+
 function drawWizard(x, y, facing) {
     ctx.save();
-    ctx.translate(x + 16, y + 26);
-    let bounce = Math.sin(animationTimer * 2) * 1.5;
-    ctx.translate(0, bounce);
+    ctx.translate(x + player.w / 2, y + player.h / 2 + 5);
+    
+    let isMoving = Math.abs(player.vx) > 0.1;
+    let walkCycle = isMoving ? Math.sin(animationTimer * 2.5) : 0;
+    let idleBounce = Math.sin(animationTimer * 1.5) * 1.5;
+    
+    ctx.translate(0, idleBounce);
+    ctx.rotate(walkCycle * 0.06);
 
-    ctx.fillStyle = "#5c3ca6";
+    let flip = facing === 'right' ? 1 : -1;
+    ctx.scale(flip, 1);
+
+    // 1. Wizard Robe
+    let bodyGrad = ctx.createRadialGradient(-3, 10, 2, 0, 15, 25);
+    bodyGrad.addColorStop(0, '#7852e6');
+    bodyGrad.addColorStop(0.7, '#5033aa');
+    bodyGrad.addColorStop(1, '#341f71');
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -10);
-    ctx.lineTo(-16, 26);
-    ctx.lineTo(16, 26);
+    ctx.moveTo(-18, 26);
+    ctx.bezierCurveTo(-16, 0, -12, -8, 0, -8);
+    ctx.bezierCurveTo(12, -8, 16, 0, 18, 26);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = "#432b80";
-    ctx.fillRect(-4, 4, 8, 22);
-
-    ctx.fillStyle = "#ffd4a1";
+    // 2. Big Cartoon Fluffy Beard
+    ctx.fillStyle = "#ffffff";
     ctx.beginPath();
-    ctx.arc(0, -12, 10, 0, Math.PI * 2);
+    ctx.moveTo(-10, -10);
+    ctx.bezierCurveTo(-16, 5, -12, 20, 0, 24); 
+    ctx.bezierCurveTo(12, 20, 16, 5, 10, -10);
+    ctx.bezierCurveTo(5, -4, -5, -4, -10, -10);
+    ctx.closePath();
     ctx.fill();
+    
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 3. Cartoon Face
+    ctx.fillStyle = "#ffc09f"; 
+    ctx.beginPath();
+    ctx.arc(3, -12, 7, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = "#ff9e79";
+    ctx.beginPath();
+    ctx.arc(7, -11, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(3, -15, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#222"; 
+    ctx.beginPath();
+    ctx.arc(4, -15, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Over-sized Drooping Wizard Hat
+    let hatGrad = ctx.createLinearGradient(-15, -40, 15, -15);
+    hatGrad.addColorStop(0, '#5c3ca6');
+    hatGrad.addColorStop(1, '#3a2170');
+    
+    ctx.fillStyle = "#4a2f8a";
+    ctx.beginPath();
+    ctx.ellipse(0, -18, 22, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#25144b";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = hatGrad;
+    ctx.beginPath();
+    ctx.moveTo(-14, -19);
+    ctx.bezierCurveTo(-10, -38, 5, -42, 12, -40); 
+    ctx.bezierCurveTo(16, -45, 20, -42, 22, -38); 
+    ctx.bezierCurveTo(14, -30, 8, -24, 13, -19);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
     ctx.fillStyle = "#f1c40f";
-    let eyeOffset = facing === 'right' ? 3 : -3;
-    ctx.beginPath();
-    ctx.arc(eyeOffset - 2, -14, 2, 0, Math.PI * 2);
-    ctx.arc(eyeOffset + 3, -14, 2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(5, -23, 6, 6);
+    ctx.fillStyle = "#e67e22";
+    ctx.fillRect(7, -21, 2, 2);
 
-    ctx.fillStyle = "#e6e6fa";
-    ctx.beginPath();
-    ctx.moveTo(-7, -10);
-    ctx.lineTo(0, 10);
-    ctx.lineTo(7, -10);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#432b80";
-    ctx.fillRect(-15, -22, 30, 4);
-    ctx.fillStyle = "#5c3ca6";
-    ctx.beginPath();
-    ctx.moveTo(-10, -22);
-    ctx.lineTo(facing === 'right' ? 8 : -8, -46);
-    ctx.lineTo(10, -22);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#f1c40f";
-    ctx.fillRect(-10, -22, 20, 3);
     ctx.restore();
 }
 
 function drawBerry(x, y, pulse) {
     ctx.save();
-    ctx.translate(x, y + Math.sin(pulse) * 2);
-    ctx.fillStyle = "#e43f5a";
+    let animScale = 1 + Math.sin(pulse * 2) * 0.05;
+    ctx.translate(x, y);
+    ctx.scale(animScale, animScale);
+
+    let berryGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, 14);
+    berryGrad.addColorStop(0, '#ff5e7e');
+    berryGrad.addColorStop(0.6, '#e43f5a');
+    berryGrad.addColorStop(1, '#9a1f35');
+    
+    ctx.fillStyle = berryGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -10);
-    ctx.bezierCurveTo(12, -10, 14, 6, 0, 14);
-    ctx.bezierCurveTo(-14, 6, -12, -10, 0, -10);
+    ctx.moveTo(0, -12);
+    ctx.bezierCurveTo(14, -12, 16, 6, 0, 15);  
+    ctx.bezierCurveTo(-16, 6, -14, -12, 0, -12);
     ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+    ctx.beginPath();
+    ctx.ellipse(-5, -5, 4, 2, Math.PI / 4, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = "#f1c40f";
-    ctx.fillRect(-4, -2, 1.5, 2);
-    ctx.fillRect(4, -2, 1.5, 2);
-    ctx.fillRect(0, 4, 1.5, 2);
+    let seeds = [[-5, 2], [5, 2], [0, 7], [-4, -4], [4, -4]];
+    seeds.forEach(s => {
+        ctx.beginPath();
+        ctx.arc(s[0], s[1], 1.2, 0, Math.PI * 2);
+        ctx.fill();
+    });
 
     ctx.fillStyle = "#2ecc71";
-    ctx.beginPath();
-    ctx.moveTo(0, -10);
-    ctx.lineTo(-6, -14);
-    ctx.lineTo(0, -12);
-    ctx.lineTo(6, -14);
-    ctx.closePath();
+    ctx.beginPath(); 
+    ctx.ellipse(-4, -13, 5, 2.5, -Math.PI/6, 0, Math.PI*2);
     ctx.fill();
+    ctx.beginPath(); 
+    ctx.ellipse(4, -13, 5, 2.5, Math.PI/6, 0, Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle = "#27ae60"; 
+    ctx.fillRect(-1.5, -14, 3, 3);
+
     ctx.restore();
 }
 
 function drawCrystal(x, y, pulse) {
     ctx.save();
-    ctx.translate(x, y + Math.cos(pulse) * 2);
-    let gradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 14);
-    gradient.addColorStop(0, 'rgba(77, 166, 255, 0.6)');
-    gradient.addColorStop(1, 'rgba(77, 166, 255, 0)');
-    ctx.fillStyle = gradient;
+    ctx.translate(x, y);
+
+    let glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
+    glow.addColorStop(0, 'rgba(0, 242, 254, 0.45)');
+    glow.addColorStop(0.5, 'rgba(77, 166, 255, 0.15)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(0, 0, 14, 0, Math.PI*2);
+    ctx.arc(0, 0, 22, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "#00bcd4";
+    ctx.translate(0, Math.cos(pulse) * 2.5);
+
+    let gradA = ctx.createLinearGradient(0,-16, -12, -2);
+    gradA.addColorStop(0, '#e0f7fa'); gradA.addColorStop(1, '#00b4d8');
+    ctx.fillStyle = gradA;
+    ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(-12, -2); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+
+    let gradB = ctx.createLinearGradient(0,-16, 12, -2);
+    gradB.addColorStop(0, '#ffffff'); gradB.addColorStop(1, '#90e0ef');
+    ctx.fillStyle = gradB;
+    ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(12, -2); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+
+    let gradC = ctx.createLinearGradient(-12,-2, 0, 16);
+    gradC.addColorStop(0, '#0077b6'); gradC.addColorStop(1, '#03045e');
+    ctx.fillStyle = gradC;
+    ctx.beginPath(); ctx.moveTo(-12, -2); ctx.lineTo(0, 16); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+
+    let gradD = ctx.createLinearGradient(12,-2, 0, 16);
+    gradD.addColorStop(0, '#0096c7'); gradD.addColorStop(1, '#023e8a');
+    ctx.fillStyle = gradD;
+    ctx.beginPath(); ctx.moveTo(12, -2); ctx.lineTo(0, 16); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, -12);  
-    ctx.lineTo(10, -2);  
-    ctx.lineTo(0, 12);   
-    ctx.lineTo(-10, -2); 
+    ctx.moveTo(0, -16);
+    ctx.lineTo(0, 16);
+    ctx.moveTo(-12, -2);
+    ctx.lineTo(12, -2);
+    ctx.stroke();
+
+    ctx.restore();
+}
+
+function drawCauldron() {
+    ctx.save();
+    ctx.translate(cauldron.x, cauldron.y);
+
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.beginPath();
+    ctx.ellipse(cauldron.w / 2, cauldron.h - 5, 42, 8, 0, 0, 2 * Math.PI);
+    ctx.fill();
+
+    let ironGrad = ctx.createRadialGradient(cauldron.w / 3, cauldron.h / 2, 5, cauldron.w / 2, cauldron.h / 2, cauldron.w / 2);
+    ironGrad.addColorStop(0, '#3a4f66'); 
+    ironGrad.addColorStop(0.5, '#2c3e50');
+    ironGrad.addColorStop(0.9, '#1a252f');
+    ironGrad.addColorStop(1, '#0f171e'); 
+    
+    ctx.fillStyle = ironGrad;
+    ctx.beginPath();
+    ctx.moveTo(8, 18);
+    ctx.bezierCurveTo(-12, cauldron.h - 10, cauldron.w + 12, cauldron.h - 10, cauldron.w - 8, 18);
+    ctx.lineTo(cauldron.w, 18);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = "#e0f7fa";
+    let rimGrad = ctx.createLinearGradient(0, 10, cauldron.w, 18);
+    rimGrad.addColorStop(0, '#4f6984');
+    rimGrad.addColorStop(0.5, '#2c3e50');
+    rimGrad.addColorStop(1, '#111b24');
+    ctx.fillStyle = rimGrad;
+    ctx.fillRect(-4, 10, cauldron.w + 8, 9);
+    
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-4, 11); ctx.lineTo(cauldron.w + 4, 11); ctx.stroke();
+
+    let brewColor = (gameStatus === "fail") ? "#e74c3c" : "#2ecc71";
+    let brewGlow = (gameStatus === "fail") ? "#ff7675" : "#55efc4";
+    
+    let liquidGrad = ctx.createRadialGradient(cauldron.w/2, 11, 2, cauldron.w/2, 11, cauldron.w/2 - 5);
+    liquidGrad.addColorStop(0, brewGlow);
+    liquidGrad.addColorStop(0.8, brewColor);
+    liquidGrad.addColorStop(1, '#1b6336');
+
+    ctx.fillStyle = liquidGrad;
     ctx.beginPath();
-    ctx.moveTo(0, -12);
-    ctx.lineTo(10, -2);
-    ctx.lineTo(0, 0);
-    ctx.closePath();
+    ctx.ellipse(cauldron.w / 2, 11, cauldron.w / 2 + 1, 5, 0, 0, 2 * Math.PI);
     ctx.fill();
 
-    ctx.fillStyle = "#4da6ff";
+    ctx.fillStyle = "rgba(255,255,255,0.15)";
     ctx.beginPath();
-    ctx.moveTo(-10, -2);
-    ctx.lineTo(0, 12);
-    ctx.lineTo(0, 0);
-    ctx.closePath();
+    ctx.ellipse(cauldron.w / 2 + Math.sin(animationTimer)*3, 11, cauldron.w / 3, 2, 0, 0, 2 * Math.PI);
     ctx.fill();
+
+    ctx.fillStyle = brewGlow;
+    let b1X = cauldron.w * 0.3 + (Math.sin(animationTimer * 1.2) * 6);
+    let b1Y = 6 - (Math.abs(Math.sin(animationTimer * 1.5)) * 22);
+    let b2X = cauldron.w * 0.7 + (Math.cos(animationTimer * 0.9) * 8);
+    let b2Y = 4 - (Math.abs(Math.cos(animationTimer * 1.1)) * 26);
+
+    if(b1Y < 12 && gameStatus === "playing") {
+        ctx.beginPath(); ctx.arc(b1X, b1Y + 10, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b1X - 1, b1Y + 9, 1, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = brewGlow;
+    if(b2Y < 12 && gameStatus === "playing") {
+        ctx.beginPath(); ctx.arc(b2X, b2Y + 10, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b2X - 1, b2Y + 9, 1.2, 0, Math.PI * 2); ctx.fill();
+    }
+
     ctx.restore();
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Stars / Background Dust
     ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
-    for(let i=1; i<6; i++) {
-        let starX = (i * 135) % canvas.width;
-        let starY = (i * 75) % (canvas.height - 100);
-        ctx.fillRect(starX, starY, 3, 3);
+    for(let i=1; i<8; i++) {
+        let starX = (i * 113) % canvas.width;
+        let starY = (i * 63) % (canvas.height - 100);
+        let size = (i % 2 === 0) ? 2 : 3;
+        ctx.fillRect(starX, starY, size, size);
     }
 
     for (let plat of platforms) {
-        ctx.fillStyle = "#222244";
+        let platGrad = ctx.createLinearGradient(plat.x, plat.y, plat.x, plat.y + plat.h);
+        platGrad.addColorStop(0, '#2a2a54');
+        platGrad.addColorStop(1, '#161633');
+        ctx.fillStyle = platGrad;
         ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-        ctx.fillStyle = "#3d3dbd";
+        
+        ctx.fillStyle = '#4d4dff';
         ctx.fillRect(plat.x, plat.y, plat.w, 4);
     }
 
-    // Cauldron Drawing
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.beginPath();
-    ctx.ellipse(cauldron.x + 35, cauldron.y + 50, 30, 6, 0, 0, 2 * Math.PI);
-    ctx.fill();
+    drawCauldron();
 
-    ctx.fillStyle = "#2c3e50";
-    ctx.fillRect(cauldron.x, cauldron.y + 10, cauldron.w, cauldron.h - 10);
-    ctx.beginPath();
-    ctx.arc(cauldron.x + 35, cauldron.y + 30, 35, 0, Math.PI, false);
-    ctx.fill();
-
-    ctx.fillStyle = "#34495e";
-    ctx.fillRect(cauldron.x - 4, cauldron.y + 6, cauldron.w + 8, 8);
-
-    let brewColor = (gameStatus === "fail") ? "#e74c3c" : "#2ecc71";
-    ctx.fillStyle = brewColor;
-    ctx.beginPath();
-    ctx.ellipse(cauldron.x + 35, cauldron.y + 7, 31, 6, 0, 0, 2 * Math.PI);
-    ctx.fill();
-
-    ctx.fillStyle = brewColor;
-    let bubble1Y = cauldron.y - 2 - (Math.abs(Math.sin(animationTimer)) * 12);
-    let bubble2Y = cauldron.y - 6 - (Math.abs(Math.cos(animationTimer * 1.5)) * 15);
-    ctx.beginPath();
-    ctx.arc(cauldron.x + 20, bubble1Y, 3, 0, Math.PI * 2);
-    ctx.arc(cauldron.x + 48, bubble2Y, 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Draw Live Active Items
     for (let it of items) {
         if (it.type === "red") {
             drawBerry(it.x, it.y, animationTimer + it.pulseOffset);
@@ -565,18 +694,10 @@ function draw() {
         }
     }
 
-    // Draw Wizard character 
     drawWizard(player.x, player.y, player.facing);
 
-    // Live Sub-HUD text indicators painted inside canvas
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = "bold 13px Segoe UI";
-    ctx.textAlign = "left";
-    ctx.fillText(`Cauldron Mix: ${cauldron.redCount} 🍓 / ${cauldron.blueCount} 💎`, 20, 35);
-
-    // Context Overlays
     if (gameStatus === "win") {
-        ctx.fillStyle = "rgba(10, 10, 25, 0.92)";
+        ctx.fillStyle = "rgba(7, 7, 18, 0.93)";
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.fillStyle = "#2ecc71";
         ctx.font = "bold 34px Segoe UI";
@@ -591,7 +712,7 @@ function draw() {
         ctx.fillText("Time is Paused! Next recipe loading in 5 seconds...", canvas.width/2, 310);
 
     } else if (gameStatus === "fail") {
-        ctx.fillStyle = "rgba(15, 10, 10, 0.94)";
+        ctx.fillStyle = "rgba(12, 6, 6, 0.95)";
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.fillStyle = "#e74c3c";
         ctx.font = "bold 34px Segoe UI";
@@ -608,7 +729,7 @@ function draw() {
         ctx.fillText("Time is Paused! Next formula loading in 5 seconds...", canvas.width/2, 320);
 
     } else if (gameStatus === "session_end") {
-        ctx.fillStyle = "rgba(8, 8, 20, 0.96)";
+        ctx.fillStyle = "rgba(5, 5, 12, 0.97)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         ctx.strokeStyle = "#3d3dbd";
@@ -648,7 +769,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Kickstart system
+// Initial System Execution Call
 generatePuzzle();
 gameLoop();
 </script>
