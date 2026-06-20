@@ -164,7 +164,7 @@
     Use <strong>Left/Right Arrow Keys</strong> (or A/D) to move. Use <strong>Up Arrow</strong> (or W/Space) to jump.<br>
     The 5-minute challenge automatically begins moving on your very first keystroke movement!
     <br>
-    <button id="reset-btn" onclick="nextPuzzle(false)">Skip / Reroll Recipe</button>
+    <button id="reset-btn" onclick="skipPuzzle()">Skip / Reroll Recipe</button>
 </div>
 
 <script>
@@ -183,14 +183,14 @@ let platforms = [
 ];
 
 let keys = {};
-let gameStatus = "playing"; // playing, win, fail, session_end
+let gameStatus = "playing"; // playing, win, fail, transitioning, session_end
 let animationTimer = 0;
 
 // Scoreboard System State Variables
 let totalWins = 0;
 let totalAttempts = 0;
 let timerSeconds = 300; // 5 Minutes
-let timerStarted = false;
+let timerActive = false;
 let sessionCountdownInterval = null;
 
 // Math Variables
@@ -219,7 +219,14 @@ function generatePuzzle() {
     player.y = 350;
     player.vx = 0;
     player.vy = 0;
-    if (gameStatus !== "session_end") gameStatus = "playing";
+    
+    if (gameStatus !== "session_end") {
+        gameStatus = "playing";
+        // Resume timer execution on puzzle reset if running
+        if (sessionCountdownInterval === null && timerSeconds < 300 && timerSeconds > 0) {
+            startSessionTimer();
+        }
+    }
     
     document.getElementById('ratio-text').innerHTML = `<span style="color:#ff4d4d">${baseRed}</span><span style="font-size:12px;">🍓</span>:<span style="color:#4da6ff">${baseBlue}</span><span style="font-size:12px;">💎</span>`;
     document.getElementById('total-text').innerText = targetTotal;
@@ -230,27 +237,23 @@ function generatePuzzle() {
 function spawnItem() {
     if (items.length >= 8 || gameStatus !== "playing") return;
 
-    // Evaluate live dynamic item counts
     let currentRedOnField = items.filter(i => i.type === "red").length;
     let currentBlueOnField = items.filter(i => i.type === "blue").length;
 
     let totalRedAccounted = cauldron.redCount + currentRedOnField;
     let totalBlueAccounted = cauldron.blueCount + currentBlueOnField;
 
-    // Identify if specific types have met the required cap thresholds
     let needsRed = totalRedAccounted < requiredRed;
     let needsBlue = totalBlueAccounted < requiredBlue;
 
     let type = "";
     if (needsRed && needsBlue) {
-        // If both are needed, spawn randomly based on proportion
         type = Math.random() > 0.5 ? "red" : "blue";
     } else if (needsRed) {
         type = "red";
     } else if (needsBlue) {
         type = "blue";
     } else {
-        // Excess items buffer pool in case items are dropped/wasted
         type = Math.random() > 0.5 ? "red" : "blue";
     }
 
@@ -264,9 +267,9 @@ function spawnItem() {
 }
 setInterval(spawnItem, 800);
 
-// Timer Execution Rules
+// Timer Management (Now features robust Pausing support)
 function startSessionTimer() {
-    timerStarted = true;
+    timerActive = true;
     sessionCountdownInterval = setInterval(() => {
         timerSeconds--;
         
@@ -276,11 +279,18 @@ function startSessionTimer() {
             `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
             
         if (timerSeconds <= 0) {
-            clearInterval(sessionCountdownInterval);
+            stopSessionTimer();
             gameStatus = "session_end";
             document.getElementById('reset-btn').disabled = true;
         }
     }, 1000);
+}
+
+function stopSessionTimer() {
+    if (sessionCountdownInterval) {
+        clearInterval(sessionCountdownInterval);
+        sessionCountdownInterval = null;
+    }
 }
 
 function updateScoreboardUI() {
@@ -291,18 +301,20 @@ function updateScoreboardUI() {
 
 // User submission cycle transitions
 function nextPuzzle(wasWon) {
-    if (gameStatus === "session_end") return;
-    
     totalAttempts++;
     if (wasWon) totalWins++;
-    
     generatePuzzle();
+}
+
+function skipPuzzle() {
+    if (gameStatus !== "playing") return;
+    nextPuzzle(false);
 }
 
 window.addEventListener('keydown', e => {
     keys[e.code] = true;
-    // Delayed activation triggers on initial interaction
-    if (!timerStarted && (keys['ArrowRight'] || keys['KeyD'] || keys['ArrowLeft'] || keys['KeyA'] || keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) {
+    // Initial start flag capture
+    if (!timerActive && timerSeconds > 0 && (keys['ArrowRight'] || keys['KeyD'] || keys['ArrowLeft'] || keys['KeyA'] || keys['Space'] || keys['ArrowUp'] || keys['KeyW'])) {
         startSessionTimer();
     }
 });
@@ -362,10 +374,19 @@ function update() {
 function checkWinCondition() {
     let currentTotal = cauldron.redCount + cauldron.blueCount;
     if (currentTotal >= targetTotal) {
+        // Halt active match timer ticks instantly
+        stopSessionTimer();
+        
         if (cauldron.redCount === requiredRed && cauldron.blueCount === requiredBlue) {
             gameStatus = "win";
+            setTimeout(() => { 
+                if (gameStatus !== "session_end") nextPuzzle(true); 
+            }, 5000); // 5 Second Display Duration
         } else {
             gameStatus = "fail";
+            setTimeout(() => { 
+                if (gameStatus !== "session_end") nextPuzzle(false); 
+            }, 5000); // 5 Second Display Duration
         }
     }
 }
@@ -555,7 +576,7 @@ function draw() {
 
     // Context Overlays
     if (gameStatus === "win") {
-        ctx.fillStyle = "rgba(10, 10, 25, 0.9)";
+        ctx.fillStyle = "rgba(10, 10, 25, 0.92)";
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.fillStyle = "#2ecc71";
         ctx.font = "bold 34px Segoe UI";
@@ -566,20 +587,16 @@ function draw() {
         ctx.fillText(`Perfect balance! ${cauldron.redCount} Berries and ${cauldron.blueCount} Crystals matched ${baseRed}:${baseBlue}.`, canvas.width/2, 230);
         
         ctx.fillStyle = "#f1c40f";
-        ctx.font = "bold 16px Segoe UI";
-        ctx.fillText("Loading next dynamic recipe formula challenge...", canvas.width/2, 310);
-        
-        // Auto-advance loop sequence after buffer delay
-        gameStatus = "transitioning";
-        setTimeout(() => { nextPuzzle(true); }, 2200);
+        ctx.font = "bold 15px Segoe UI";
+        ctx.fillText("Time is Paused! Next recipe loading in 5 seconds...", canvas.width/2, 310);
 
     } else if (gameStatus === "fail") {
-        ctx.fillStyle = "rgba(15, 10, 10, 0.9)";
+        ctx.fillStyle = "rgba(15, 10, 10, 0.94)";
         ctx.fillRect(0,0,canvas.width,canvas.height);
         ctx.fillStyle = "#e74c3c";
         ctx.font = "bold 34px Segoe UI";
         ctx.textAlign = "center";
-        ctx.fillText("💥 Volatile Mixture! Potion Blown! 💥", canvas.width/2, 140);
+        ctx.fillText("💥 Volatile Mixture! Potion Exploded! 💥", canvas.width/2, 140);
         ctx.fillStyle = "#fff";
         ctx.font = "18px Segoe UI";
         ctx.fillText(`You mixed ${cauldron.redCount} 🍓 and ${cauldron.blueCount} 💎 (Target Total was ${targetTotal}).`, canvas.width/2, 200);
@@ -588,17 +605,12 @@ function draw() {
         
         ctx.fillStyle = "#3498db";
         ctx.font = "bold 15px Segoe UI";
-        ctx.fillText("Moving to next recipe puzzle layout...", canvas.width/2, 320);
-        
-        gameStatus = "transitioning";
-        setTimeout(() => { nextPuzzle(false); }, 3500);
+        ctx.fillText("Time is Paused! Next formula loading in 5 seconds...", canvas.width/2, 320);
 
     } else if (gameStatus === "session_end") {
-        // High-Quality Endgame Comprehensive Summary Scoreboard Scroll
         ctx.fillStyle = "rgba(8, 8, 20, 0.96)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Outer glowing border container decoration
         ctx.strokeStyle = "#3d3dbd";
         ctx.lineWidth = 4;
         ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
@@ -612,14 +624,12 @@ function draw() {
         ctx.font = "18px Segoe UI";
         ctx.fillText("Your absolute grand alchemist trial efficiency results:", canvas.width / 2, 165);
 
-        // Stats Display Row 
         ctx.fillStyle = "#b5e2fa";
         ctx.font = "22px Segoe UI";
         ctx.fillText(`Total Formulas Solved: ${totalWins}`, canvas.width / 2, 220);
         ctx.fillStyle = "#e43f5a";
         ctx.fillText(`Total Attempts Made: ${totalAttempts}`, canvas.width / 2, 255);
 
-        // Calculate absolute Accuracy Rating Metric
         let finalRate = totalAttempts === 0 ? 0 : Math.round((totalWins / totalAttempts) * 100);
         
         ctx.fillStyle = "#2ecc71";
